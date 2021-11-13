@@ -8,10 +8,10 @@ import {
   View,
   Image,
   FlatList,
+  ListRenderItemInfo,
   TouchableOpacity,
 } from 'react-native';
-import {ApplicationState, onLoading, loadMovies} from '../store';
-import {useSelector, useDispatch} from 'react-redux';
+import axios from 'axios';
 
 interface Movie {
   title: string;
@@ -21,6 +21,8 @@ interface Movie {
   poster: string;
   hero_image: string;
 }
+
+interface Movies extends Array<Movie> {}
 
 const Item = ({title, episode_number, poster}: Movie) => (
   <View style={styles.movieBox}>
@@ -42,59 +44,44 @@ const Item = ({title, episode_number, poster}: Movie) => (
 );
 
 const MainPage = () => {
-  const dispatch = useDispatch();
-
-  const {movies} = useSelector(
-    (state: ApplicationState) => state.moviesReducer,
-  );
-
-  const {loading} = useSelector(
-    (state: ApplicationState) => state.loadingReducer,
-  );
-
   const [sort, setSort] = useState('ASC');
-  const [moviesData, setMoviesData] = useState([]);
+  const [isLoading, setLoading] = useState(true);
+  const [movies, setMovies] = useState<Movies>([]);
 
   const loadData = async () => {
-    Promise.all([dispatch(onLoading(true)), dispatch(loadMovies())]);
-    return dispatch(onLoading(false));
+    try {
+      const response = await axios.get<any>(
+        'https://raw.githubusercontent.com/RyanHemrick/star_wars_movie_app/master/movies.json',
+      );
+
+      if (!response) {
+      } else {
+        setMovies(response.data.movies);
+      }
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadData();
   }, []);
 
-  useEffect(() => {
-    setMoviesData(
-      movies.sort(
-        (a: Movie, b: Movie) =>
-          Number(a.episode_number) - Number(b.episode_number),
-      ),
-    );
-  }, [movies]);
-
   const toggleSort = () => {
     sort === 'ASC' ? setSort('DESC') : setSort('ASC');
+    const moviesSorted = [...movies].sort((a: Movie, b: Movie) => {
+      if (a.episode_number > b.episode_number) {
+        return sort === 'ASC' ? -1 : 1;
+      } else if (b.episode_number > a.episode_number) {
+        return sort === 'DESC' ? -1 : 1;
+      }
+      return 0;
+    });
+
+    setMovies(moviesSorted);
   };
-
-  const Loading = () => (
-    <ActivityIndicator
-      size={'large'}
-      color={'#404040'}
-      style={styles.loading}
-    />
-  );
-
-  const renderItem = (data: Movie) => (
-    <Item
-      title={data.title}
-      episode_number={data.episode_number}
-      main_characters={data.main_characters}
-      description={data.description}
-      poster={data.poster}
-      hero_image={data.hero_image}
-    />
-  );
 
   return (
     <View style={styles.page}>
@@ -105,35 +92,40 @@ const MainPage = () => {
           style={styles.logo}
         />
       </SafeAreaView>
-      <FlatList
-        style={styles.list}
-        data={
-          sort === 'ASC'
-            ? moviesData.sort(
-                (a: Movie, b: Movie) =>
-                  Number(a.episode_number) - Number(b.episode_number),
-              )
-            : moviesData.sort(
-                (a: Movie, b: Movie) =>
-                  Number(b.episode_number) - Number(a.episode_number),
-              )
-        }
-        renderItem={(item: any) => renderItem(item.item)}
-        keyExtractor={(item: Movie) => item.title}
-        ListFooterComponent={
-          <View style={styles.footerBtnBox}>
-            <TouchableOpacity
-              style={styles.footerBtn}
-              onPress={() => toggleSort()}>
-              <Text style={styles.footerBtnText}>
-                Sort {sort === 'ASC' ? '▲' : '▼'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        }
-      />
-
-      {loading && <Loading />}
+      {isLoading ? (
+        <ActivityIndicator
+          size={'large'}
+          color={'#fff'}
+          style={styles.loading}
+        />
+      ) : (
+        <FlatList
+          style={styles.list}
+          data={movies}
+          renderItem={({item}: ListRenderItemInfo<Movie>) => (
+            <Item
+              title={item.title}
+              episode_number={item.episode_number}
+              main_characters={item.main_characters}
+              description={item.description}
+              poster={item.poster}
+              hero_image={item.hero_image}
+            />
+          )}
+          keyExtractor={(item: Movie) => item.title}
+          ListFooterComponent={
+            <View style={styles.footerBtnBox}>
+              <TouchableOpacity
+                style={styles.footerBtn}
+                onPress={() => toggleSort()}>
+                <Text style={styles.footerBtnText}>
+                  Sort {sort === 'ASC' ? '▲' : '▼'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          }
+        />
+      )}
     </View>
   );
 };
