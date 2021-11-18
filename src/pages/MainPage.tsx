@@ -23,6 +23,7 @@ interface Movie {
 }
 
 interface Movies extends Array<Movie> {}
+type Sort = 'ASC' | 'DESC';
 
 const Item = ({title, episode_number, poster}: Movie) => (
   <View style={styles.movieBox}>
@@ -44,11 +45,12 @@ const Item = ({title, episode_number, poster}: Movie) => (
 );
 
 const MainPage = () => {
-  const [sort, setSort] = useState('ASC');
+  const [sort, setSort] = useState<Sort>('ASC');
   const [isLoading, setLoading] = useState(true);
   const [movies, setMovies] = useState<Movies>([]);
 
   const loadData = async () => {
+    setLoading(true);
     try {
       const response = await axios.get<any>(
         'https://raw.githubusercontent.com/RyanHemrick/star_wars_movie_app/master/movies.json',
@@ -72,10 +74,12 @@ const MainPage = () => {
   const toggleSort = () => {
     sort === 'ASC' ? setSort('DESC') : setSort('ASC');
     const moviesSorted = [...movies].sort((a: Movie, b: Movie) => {
-      if (a.episode_number > b.episode_number) {
-        return sort === 'ASC' ? -1 : 1;
-      } else if (b.episode_number > a.episode_number) {
+      let sortedASC: boolean = a.episode_number > b.episode_number;
+
+      if (!sortedASC) {
         return sort === 'DESC' ? -1 : 1;
+      } else if (sortedASC) {
+        return sort === 'ASC' ? -1 : 1;
       }
       return 0;
     });
